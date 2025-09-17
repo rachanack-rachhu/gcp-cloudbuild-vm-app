@@ -1,0 +1,40 @@
+steps:
+  # Step 1: Create VM if not exists
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - compute
+      - instances
+      - create
+      - my-python-vm
+      - --zone=us-central1-a
+      - --machine-type=e2-micro
+      - --image-family=debian-11
+      - --image-project=debian-cloud
+      - --tags=http-server
+    id: create-vm
+    waitFor: ["-"]
+
+  # Step 2: Copy code into VM
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - compute
+      - scp
+      - --recurse
+      - .
+      - my-python-vm:~/app
+      - --zone=us-central1-a
+    id: copy-code
+    waitFor: ["create-vm"]
+
+  # Step 3: SSH into VM and run app
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - compute
+      - ssh
+      - my-python-vm
+      - --zone=us-central1-a
+      - --command=sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install -r ~/app/requirements.txt && nohup python3 ~/app/app.py &
+    id: deploy-app
+    waitFor: ["copy-code"]
+
+timeout: "1200s"
