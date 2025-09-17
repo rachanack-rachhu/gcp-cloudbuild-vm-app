@@ -1,11 +1,13 @@
 steps:
-  # Step 1: Build the image
+  # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest', '.']
+    args:
+      ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest', '.']
 
-  # Step 2: Push the image
+  # Step 2: Push the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest']
+    args:
+      ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest']
 
   # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -20,3 +22,10 @@ steps:
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest'
+
+# Optional: specify the service account (if you have a custom SA)
+# serviceAccount: projects/$PROJECT_ID/serviceAccounts/YOUR_SERVICE_ACCOUNT_EMAIL
+
+options:
+  # Make Cloud Build log only to Cloud Logging (avoid the logs bucket error)
+  logging: CLOUD_LOGGING_ONLY
