@@ -40,7 +40,7 @@ steps:
     - compute
     - backend-services
     - add-backend
-    - my-backend-svc
+    - python-app-mig
     - --instance-group=green-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=0.0
@@ -57,7 +57,7 @@ steps:
     - compute
     - backend-services
     - update-backend
-    - my-backend-svc
+    - python-app-mig
     - --instance-group=green-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=1.0
@@ -68,7 +68,7 @@ steps:
     - compute
     - backend-services
     - update-backend
-    - my-backend-svc
+    - python-app-mig
     - --instance-group=blue-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=0.0
