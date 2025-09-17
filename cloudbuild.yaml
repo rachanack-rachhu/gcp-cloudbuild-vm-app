@@ -40,17 +40,22 @@ steps:
     - compute
     - backend-services
     - add-backend
-    - python-app-backend-svc   # ✅ backend service, not MIG
+    - python-app-backend-svc     # backend service (LB target)
     - --instance-group=green-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=0.0
     - --balancing-mode=UTILIZATION
     - --global
 
-# 6. Run smoke test (replace GREEN_MIG_TEST_IP with actual LB frontend IP or DNS)
+# 6. Run smoke test via Load Balancer external IP
 - name: 'curlimages/curl'
   args:
-    ['curl', '-f', 'http://GREEN_MIG_TEST_IP/healthz']
+    - -s
+    - -o
+    - /dev/null
+    - -w
+    - "%{http_code}"
+    - "http://<LOAD_BALANCER_IP>/healthz"
 
 # 7. Promote GREEN (switch traffic to green-mig)
 - name: 'gcr.io/cloud-builders/gcloud'
