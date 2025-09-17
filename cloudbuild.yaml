@@ -19,7 +19,7 @@ steps:
     id: create-vm
     waitFor: ["-"]
 
-  # Step 2: Copy code into VM
+  # Step 2: Copy code into VM (use OS Login username)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - compute
@@ -28,16 +28,22 @@ steps:
       - .
       - my-python-vm:~/app
       - --zone=us-central1-a
+      - --
+      - -l
+      - sa_950066490868
     id: copy-code
     waitFor: ["create-vm"]
 
-  # Step 3: SSH into VM and run app
+  # Step 3: SSH into VM and run app (again use OS Login username)
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - compute
       - ssh
       - my-python-vm
       - --zone=us-central1-a
+      - --
+      - -l
+      - sa_950066490868
       - --command=sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install -r ~/app/requirements.txt && nohup python3 ~/app/app.py &
     id: deploy-app
     waitFor: ["copy-code"]
