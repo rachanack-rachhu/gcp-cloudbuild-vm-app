@@ -1,61 +1,73 @@
 steps:
-  # Step 1: Build Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest', '.']
+# 1. Build Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-repo/myapp:$SHORT_SHA', '.']
 
-  # Step 2: Push Docker image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest']
+# 2. Push Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-repo/myapp:$SHORT_SHA']
 
-  # Step 3: Create instance template for MIG
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        gcloud compute instance-templates create python-app-template \
-          --machine-type=e2-medium \
-          --tags=http-server \
-          --image-family=ubuntu-2204-lts \
-          --image-project=ubuntu-os-cloud \
-          --metadata=startup-script="#!/bin/bash
-            apt update
-            apt install -y docker.io
-            systemctl enable docker
-            systemctl start docker
-            gcloud auth configure-docker us-central1-docker.pkg.dev
-            docker pull us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
-            docker stop python-app-vm || true
-            docker rm python-app-vm || true
-            docker run -d --name python-app-vm -p 8080:8080 us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
-          "
+# 3. Create instance template for GREEN
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - compute
+    - instance-templates
+    - create-with-container
+    - green-template-$SHORT_SHA
+    - --container-image=us-central1-docker.pkg.dev/$PROJECT_ID/my-repo/myapp:$SHORT_SHA
+    - --machine-type=e2-medium
 
-  # Step 4: Create the Managed Instance Group
-  - name: 'gcr.io/cloud-builders/gcloud'
-    args:
-      [
-        'compute', 'instance-groups', 'managed', 'create', 'python-app-mig',
-        '--base-instance-name', 'python-app',
-        '--size', '2',
-        '--template', 'python-app-template',
-        '--zone', 'us-central1-a'
-      ]
+# 4. Create or update GREEN MIG
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - compute
+    - instance-groups
+    - managed
+    - create
+    - green-mig
+    - --template=green-template-$SHORT_SHA
+    - --size=2
+    - --zone=us-central1-a
+  waitFor: ['-']
 
-  # Step 5: Optional: Configure auto-scaling
-  - name: 'gcr.io/cloud-builders/gcloud'
-    args:
-      [
-        'compute', 'instance-groups', 'managed', 'set-autoscaling', 'python-app-mig',
-        '--max-num-replicas', '5',
-        '--min-num-replicas', '1',
-        '--target-cpu-utilization', '0.6',
-        '--zone', 'us-central1-a'
-      ]
+# 5. Add GREEN MIG to backend service with 0% traffic
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - compute
+    - backend-services
+    - add-backend
+    - my-backend-svc
+    - --instance-group=green-mig
+    - --instance-group-zone=us-central1-a
+    - --capacity-scaler=0.0
+    - --global
 
-images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest'
+# 6. Run smoke test (custom container)
+- name: 'curlimages/curl'
+  args:
+    ['curl', '-f', 'http://GREEN_MIG_TEST_IP/healthz']
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+# 7. Promote GREEN (switch traffic)
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - compute
+    - backend-services
+    - update-backend
+    - my-backend-svc
+    - --instance-group=green-mig
+    - --instance-group-zone=us-central1-a
+    - --capacity-scaler=1.0
+    - --global
+
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - compute
+    - backend-services
+    - update-backend
+    - my-backend-svc
+    - --instance-group=blue-mig
+    - --instance-group-zone=us-central1-a
+    - --capacity-scaler=0.0
+    - --global
