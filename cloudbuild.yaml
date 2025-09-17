@@ -9,7 +9,7 @@ steps:
     args:
       ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest']
 
-  # Step 3: Create the VM with Docker installed (using startup-script)
+  # Step 3: Create VM with Docker and deploy container
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -21,14 +21,19 @@ steps:
           --image-family=ubuntu-2204-lts \
           --image-project=ubuntu-os-cloud \
           --tags=http-server \
-          --metadata=startup-script='#!/bin/bash
+          --metadata=startup-script="#!/bin/bash
             apt update
             apt install -y docker.io
             systemctl enable docker
             systemctl start docker
+            # Authenticate Docker to Artifact Registry
+            gcloud auth configure-docker us-central1-docker.pkg.dev
+            # Pull and run the image
             docker pull us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
+            docker stop python-app-vm || true
+            docker rm python-app-vm || true
             docker run -d --name python-app-vm -p 8080:8080 us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
-          '
+          "
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest'
