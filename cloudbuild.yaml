@@ -1,31 +1,37 @@
 steps:
-  # Step 1: Build the Docker image
+  # Step 1: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest', '.']
+      ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest', '.']
 
-  # Step 2: Push the Docker image
+  # Step 2: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest']
+      ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest']
 
-  # Step 3: Deploy to Cloud Run
+  # Step 3: Create the VM with Docker installed (using startup-script)
   - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
     args:
-      [
-        'run', 'deploy', 'python-app',
-        '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest',
-        '--region', 'us-central1',
-        '--platform', 'managed',
-        '--allow-unauthenticated'
-      ]
+      - '-c'
+      - |
+        gcloud compute instances create python-app-vm \
+          --zone=us-central1-a \
+          --machine-type=e2-medium \
+          --image-family=ubuntu-2204-lts \
+          --image-project=ubuntu-os-cloud \
+          --tags=http-server \
+          --metadata=startup-script='#!/bin/bash
+            apt update
+            apt install -y docker.io
+            systemctl enable docker
+            systemctl start docker
+            docker pull us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
+            docker run -d --name python-app-vm -p 8080:8080 us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
+          '
 
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest'
-
-# Optional: specify the service account (if you have a custom SA)
-# serviceAccount: projects/$PROJECT_ID/serviceAccounts/YOUR_SERVICE_ACCOUNT_EMAIL
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest'
 
 options:
-  # Make Cloud Build log only to Cloud Logging (avoid the logs bucket error)
   logging: CLOUD_LOGGING_ONLY
