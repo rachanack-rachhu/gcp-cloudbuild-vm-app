@@ -1,8 +1,5 @@
-# cloudbuild.yaml
-
 options:
   logging: CLOUD_LOGGING_ONLY   # keep logs in Cloud Logging
-  machineType: E2_SMALL         # optional: pick build VM type
 
 serviceAccount: projects/horizontal-leaf-470209-f0/serviceAccounts/950066490868-compute@developer.gserviceaccount.com
 
@@ -46,5 +43,3 @@ steps:
     waitFor: ["copy-code"]
 
 timeout: "1200s"
-
-
