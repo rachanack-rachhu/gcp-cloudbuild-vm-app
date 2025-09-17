@@ -1,3 +1,6 @@
+options:
+  logging: CLOUD_LOGGING_ONLY   #  Fix for service account + logging requirement
+
 steps:
 # 1. Build Docker image
 - name: 'gcr.io/cloud-builders/docker'
@@ -30,7 +33,6 @@ steps:
     - --template=green-template-$SHORT_SHA
     - --size=2
     - --zone=us-central1-a
-  waitFor: ['-']
 
 # 5. Add GREEN MIG to backend service with 0% traffic
 - name: 'gcr.io/cloud-builders/gcloud'
@@ -44,7 +46,7 @@ steps:
     - --capacity-scaler=0.0
     - --global
 
-# 6. Run smoke test (custom container)
+# 6. Run smoke test (replace with your healthcheck path or external IP)
 - name: 'curlimages/curl'
   args:
     ['curl', '-f', 'http://GREEN_MIG_TEST_IP/healthz']
