@@ -1,5 +1,5 @@
 options:
-  logging: CLOUD_LOGGING_ONLY   # send logs only to Cloud Logging
+  logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
 
 serviceAccount: projects/horizontal-leaf-470209-f0/serviceAccounts/950066490868-compute@developer.gserviceaccount.com
@@ -20,16 +20,11 @@ steps:
       - ssh
       - my-python-vm
       - --zone=us-central1-a
+      - --project=$PROJECT_ID
       - --
       - -l
       - sa_950066490868
-      - --command
-      - |
-        sudo apt-get update
-        sudo apt-get install -y docker.io
-        sudo docker stop python-app || true
-        sudo docker rm python-app || true
-        sudo docker run -d -p 80:5000 --name python-app us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest
+      - --command=sudo apt-get update && sudo apt-get install -y docker.io && sudo docker stop python-app || true && sudo docker rm python-app || true && sudo docker run -d -p 80:5000 --name python-app us-central1-docker.pkg.dev/$PROJECT_ID/python-app/python-app:latest
 
 timeout: "1200s"
 
