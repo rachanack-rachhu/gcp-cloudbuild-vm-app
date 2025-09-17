@@ -1,5 +1,5 @@
 options:
-  logging: CLOUD_LOGGING_ONLY   #  Fix for service account + logging requirement
+  logging: CLOUD_LOGGING_ONLY   # Fix for service account + logging requirement
 
 steps:
 # 1. Build Docker image
@@ -40,36 +40,38 @@ steps:
     - compute
     - backend-services
     - add-backend
-    - python-app-mig
+    - python-app-backend-svc   # ✅ backend service, not MIG
     - --instance-group=green-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=0.0
+    - --balancing-mode=UTILIZATION
     - --global
 
-# 6. Run smoke test (replace with your healthcheck path or external IP)
+# 6. Run smoke test (replace GREEN_MIG_TEST_IP with actual LB frontend IP or DNS)
 - name: 'curlimages/curl'
   args:
     ['curl', '-f', 'http://GREEN_MIG_TEST_IP/healthz']
 
-# 7. Promote GREEN (switch traffic)
+# 7. Promote GREEN (switch traffic to green-mig)
 - name: 'gcr.io/cloud-builders/gcloud'
   args:
     - compute
     - backend-services
     - update-backend
-    - python-app-mig
+    - python-app-backend-svc
     - --instance-group=green-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=1.0
     - --global
 
+# 8. Demote BLUE (scale down python-app-mig traffic)
 - name: 'gcr.io/cloud-builders/gcloud'
   args:
     - compute
     - backend-services
     - update-backend
-    - python-app-mig
-    - --instance-group=blue-mig
+    - python-app-backend-svc
+    - --instance-group=python-app-mig
     - --instance-group-zone=us-central1-a
     - --capacity-scaler=0.0
     - --global
