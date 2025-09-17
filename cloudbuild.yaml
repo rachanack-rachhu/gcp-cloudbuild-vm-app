@@ -9,31 +9,50 @@ steps:
     args:
       ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest']
 
-  # Step 3: Create VM with Docker and deploy container
+  # Step 3: Create instance template for MIG
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        gcloud compute instances create python-app-vm \
-          --zone=us-central1-a \
+        gcloud compute instance-templates create python-app-template \
           --machine-type=e2-medium \
+          --tags=http-server \
           --image-family=ubuntu-2204-lts \
           --image-project=ubuntu-os-cloud \
-          --tags=http-server \
           --metadata=startup-script="#!/bin/bash
             apt update
             apt install -y docker.io
             systemctl enable docker
             systemctl start docker
-            # Authenticate Docker to Artifact Registry
             gcloud auth configure-docker us-central1-docker.pkg.dev
-            # Pull and run the image
             docker pull us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
             docker stop python-app-vm || true
             docker rm python-app-vm || true
             docker run -d --name python-app-vm -p 8080:8080 us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest
           "
+
+  # Step 4: Create the Managed Instance Group
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      [
+        'compute', 'instance-groups', 'managed', 'create', 'python-app-mig',
+        '--base-instance-name', 'python-app',
+        '--size', '2',
+        '--template', 'python-app-template',
+        '--zone', 'us-central1-a'
+      ]
+
+  # Step 5: Optional: Configure auto-scaling
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      [
+        'compute', 'instance-groups', 'managed', 'set-autoscaling', 'python-app-mig',
+        '--max-num-replicas', '5',
+        '--min-num-replicas', '1',
+        '--target-cpu-utilization', '0.6',
+        '--zone', 'us-central1-a'
+      ]
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/python-app-vm/python-app-vm:latest'
